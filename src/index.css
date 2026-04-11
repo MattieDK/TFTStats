@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    background-color: #0a0a14;
+    color: #e2e8f0;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #13131f;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a3e;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a5e;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-tft-card border border-tft-border rounded-xl p-4;
+  }
+
+  .btn-primary {
+    @apply bg-tft-gold hover:bg-tft-gold-light text-black font-semibold
+           px-4 py-2 rounded-lg transition-colors duration-150 cursor-pointer;
+  }
+
+  .btn-ghost {
+    @apply text-slate-400 hover:text-white hover:bg-white/5
+           px-4 py-2 rounded-lg transition-colors duration-150 cursor-pointer;
+  }
+
+  /* Star level indicators */
+  .star-1 { @apply text-slate-400; }
+  .star-2 { @apply text-tft-gold; }
+  .star-3 { @apply text-yellow-300; }
+
+  /* Cost-tier borders */
+  .cost-border-1 { @apply border-cost-1; }
+  .cost-border-2 { @apply border-cost-2; }
+  .cost-border-3 { @apply border-cost-3; }
+  .cost-border-4 { @apply border-cost-4; }
+  .cost-border-5 { @apply border-cost-5; }
+
+  /* Placement badge */
+  .placement-1 { @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/40; }
+  .placement-2 { @apply bg-slate-400/20 text-slate-300 border border-slate-400/40; }
+  .placement-3 { @apply bg-orange-700/20 text-orange-400 border border-orange-700/40; }
+  .placement-4 { @apply bg-orange-700/20 text-orange-400 border border-orange-700/40; }
+  .placement-5, .placement-6, .placement-7, .placement-8 {
+    @apply bg-slate-700/20 text-slate-400 border border-slate-600/40;
+  }
+}
