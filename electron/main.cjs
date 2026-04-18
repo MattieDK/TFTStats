@@ -17,6 +17,13 @@ function sanitize(str) {
     .trim()
 }
 
+// ─── Sanitize API key — strip everything that isn't a valid key character ─────
+// Riot API keys are always "RGAPI-" followed by hex groups separated by hyphens.
+function sanitizeApiKey(str) {
+  if (typeof str !== 'string') return str
+  return str.replace(/[^A-Za-z0-9-]/g, '').trim()
+}
+
 // ─── Platform → Regional routing ─────────────────────────────────────────────
 const PLATFORM_TO_REGIONAL = {
   na1: 'americas', br1: 'americas', la1: 'americas', la2: 'americas', oc1: 'americas',
@@ -100,33 +107,30 @@ ipcMain.handle('settings:load', () => {
 ipcMain.handle('account:get', async (_e, { gameName, tagLine, platform, apiKey }) => {
   const regional = getRegional(platform)
   const url = `https://${regional}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(sanitize(gameName))}/${encodeURIComponent(sanitize(tagLine))}`
-  return riotGet(url, sanitize(apiKey))
+  return riotGet(url, sanitizeApiKey(apiKey))
 })
 
-// ─── IPC: Summoner (PUUID → summonerId) ──────────────────────────────────────
-ipcMain.handle('summoner:byPuuid', async (_e, { puuid, platform, apiKey }) => {
-  const url = `https://${sanitize(platform)}.api.riotgames.com/tft/summoner/v1/summoners/by-puuid/${sanitize(puuid)}`
-  return riotGet(url, sanitize(apiKey))
-})
+// ─── IPC: Summoner — kept for backwards compat but no longer called ──────────
+// Riot is removing encryptedSummonerId; we now use PUUID everywhere instead.
 
 // ─── IPC: Match IDs ───────────────────────────────────────────────────────────
 ipcMain.handle('matches:ids', async (_e, { puuid, platform, apiKey, count = 20 }) => {
   const regional = getRegional(platform)
   const url = `https://${regional}.api.riotgames.com/tft/match/v1/matches/by-puuid/${sanitize(puuid)}/ids?count=${count}`
-  return riotGet(url, sanitize(apiKey))
+  return riotGet(url, sanitizeApiKey(apiKey))
 })
 
 // ─── IPC: Match detail ────────────────────────────────────────────────────────
 ipcMain.handle('matches:get', async (_e, { matchId, platform, apiKey }) => {
   const regional = getRegional(platform)
   const url = `https://${regional}.api.riotgames.com/tft/match/v1/matches/${sanitize(matchId)}`
-  return riotGet(url, sanitize(apiKey))
+  return riotGet(url, sanitizeApiKey(apiKey))
 })
 
-// ─── IPC: Spectator (live game) ───────────────────────────────────────────────
-ipcMain.handle('spectator:active', async (_e, { summonerId, platform, apiKey }) => {
-  const url = `https://${sanitize(platform)}.api.riotgames.com/tft/spectator/v5/active-games/by-summoner/${sanitize(summonerId)}`
-  return riotGet(url, sanitize(apiKey))
+// ─── IPC: Spectator (live game) — uses PUUID, no summonerId needed ───────────
+ipcMain.handle('spectator:active', async (_e, { puuid, platform, apiKey }) => {
+  const url = `https://${sanitize(platform)}.api.riotgames.com/tft/spectator/v5/active-games/by-puuid/${sanitize(puuid)}`
+  return riotGet(url, sanitizeApiKey(apiKey))
 })
 
 // ─── IPC: CDragon TFT data (cached in memory, 1 h TTL) ───────────────────────

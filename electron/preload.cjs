@@ -17,11 +17,6 @@ contextBridge.exposeInMainWorld('tft', {
     get: (args) => ipcRenderer.invoke('account:get', args),
   },
 
-  summoner: {
-    /** Get summoner data (incl. summonerId) from PUUID */
-    byPuuid: (args) => ipcRenderer.invoke('summoner:byPuuid', args),
-  },
-
   matches: {
     /** Get list of recent match IDs */
     ids: (args) => ipcRenderer.invoke('matches:ids', args),

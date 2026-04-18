@@ -17,8 +17,10 @@ export default function LiveGame() {
   const [lastUpdate, setLastUpdate] = useState(null)
   const [countdown,  setCountdown]  = useState(POLL_INTERVAL_MS / 1000)
 
-  const intervalRef  = useRef(null)
-  const countdownRef = useRef(null)
+  const intervalRef    = useRef(null)
+  const countdownRef   = useRef(null)
+  // Always hold a ref to the latest fetchGame so the interval never uses a stale closure
+  const fetchGameRef   = useRef(null)
 
   const isConfigured = settings?.apiKey && settings?.gameName && settings?.tagLine
 
@@ -27,24 +29,47 @@ export default function LiveGame() {
     setLoading(true)
     setError(null)
 
-    const { summoner: s, error: sErr } = await resolveSummoner()
-    if (sErr) { setError(sErr); setLoading(false); return }
-
-    const res = await window.tft.spectator.active({
-      summonerId: s.summonerId,
-      platform:   settings.platform,
-      apiKey:     settings.apiKey,
-    })
-
-    if (res.error) {
-      if (res.error.status === 404) {
-        setError(null)
-        setGameData(null)
-      } else {
-        setError(`${res.error.status}: ${res.error.message}`)
+    try {
+      // Step 1: resolve summoner (cached after first call)
+      const { summoner: s, error: sErr } = await resolveSummoner()
+      if (sErr) {
+        setError(sErr.includes('403') || sErr.toLowerCase().includes('forbidden')
+          ? 'API key expired or invalid — please update it in Settings.'
+          : sErr)
+        setLoading(false)
+        return
       }
-    } else {
-      setGameData(res.data)
+
+      // Guard: PUUID must be present
+      if (!s?.puuid) {
+        setError('Could not resolve your account. Try saving Settings again.')
+        setLoading(false)
+        return
+      }
+
+      // Step 2: fetch active game by PUUID (no summonerId needed)
+      const res = await window.tft.spectator.active({
+        puuid:    s.puuid,
+        platform: settings.platform,
+        apiKey:   settings.apiKey,
+      })
+
+      if (res.error) {
+        if (res.error.status === 404) {
+          // 404 = not currently in a TFT game
+          setGameData(null)
+          setError(null)
+        } else if (res.error.status === 403) {
+          setError('403 Forbidden: your API key does not have access to the TFT Spectator v5 endpoint. Check that tft-spectator-v5 is enabled for your key on developer.riotgames.com.')
+        } else {
+          setError(`${res.error.status}: ${res.error.message}`)
+        }
+      } else {
+        setGameData(res.data)
+        setError(null)
+      }
+    } catch (err) {
+      setError(`Unexpected error: ${err.message}`)
     }
 
     setLastUpdate(new Date())
@@ -52,13 +77,21 @@ export default function LiveGame() {
     setLoading(false)
   }, [settings, resolveSummoner])
 
+  // Keep the ref pointing at the latest fetchGame so the interval is never stale
+  useEffect(() => {
+    fetchGameRef.current = fetchGame
+  })
+
   // ── Auto-poll while page is open ─────────────────────────────────────────────
   useEffect(() => {
     if (!isConfigured) return
 
-    fetchGame()
+    // Call immediately via ref so we always use the latest version
+    fetchGameRef.current?.()
 
-    intervalRef.current = setInterval(fetchGame, POLL_INTERVAL_MS)
+    intervalRef.current = setInterval(() => {
+      fetchGameRef.current?.()
+    }, POLL_INTERVAL_MS)
 
     countdownRef.current = setInterval(() => {
       setCountdown((c) => Math.max(0, c - 1))
@@ -68,7 +101,7 @@ export default function LiveGame() {
       clearInterval(intervalRef.current)
       clearInterval(countdownRef.current)
     }
-  }, [isConfigured]) // Only re-run if configured state changes
+  }, [isConfigured])
 
   // ── Not configured ───────────────────────────────────────────────────────────
   if (!settings) return <div className="text-tft-muted animate-pulse">Loading…</div>
@@ -84,26 +117,22 @@ export default function LiveGame() {
   }
 
   // ── Compute derived data ─────────────────────────────────────────────────────
-  const participants = gameData?.participants ?? []
-  const trackedPuuid = summoner?.puuid
+  const participants  = gameData?.participants ?? []
+  const trackedPuuid  = summoner?.puuid
 
-  // Gold costs per player board
   const boardCosts = participants.map((p) => ({
     puuid: p.puuid,
     cost:  boardGoldCost(p.units ?? [], championMap),
   }))
 
-  // Tracked player's board character IDs (for highlighting on opponent boards)
   const myCharacterIds = participants
     .find((p) => p.puuid === trackedPuuid)
     ?.units?.map((u) => (u.characterId ?? '').toLowerCase()) ?? []
 
-  // 3-star probability calculations
   const threeStarChances = gameData
     ? computeThreeStarChances(participants, trackedPuuid, championMap, champsBySet)
     : []
 
-  // Sort participants: tracked player first, then by board cost descending
   const sortedParticipants = [...participants].sort((a, b) => {
     if (a.puuid === trackedPuuid) return -1
     if (b.puuid === trackedPuuid) return  1
@@ -123,7 +152,7 @@ export default function LiveGame() {
           </p>
         </div>
         <button
-          onClick={fetchGame}
+          onClick={() => fetchGameRef.current?.()}
           disabled={loading}
           className="btn-primary disabled:opacity-50"
         >
@@ -162,7 +191,7 @@ export default function LiveGame() {
             <h2 className="text-sm font-semibold text-slate-300 mb-3">Board Gold Values</h2>
             <div className="flex flex-wrap gap-3">
               {sortedParticipants.map((p) => {
-                const cost = boardCosts.find((x) => x.puuid === p.puuid)?.cost ?? 0
+                const cost      = boardCosts.find((x) => x.puuid === p.puuid)?.cost ?? 0
                 const isTracked = p.puuid === trackedPuuid
                 return (
                   <div
@@ -183,7 +212,7 @@ export default function LiveGame() {
             </div>
           </div>
 
-          {/* 3-star chances (only for tracked player) */}
+          {/* 3-star chances */}
           {threeStarChances.length > 0 && (
             <StarChancePanel chances={threeStarChances} />
           )}

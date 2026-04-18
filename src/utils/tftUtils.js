@@ -133,3 +133,43 @@ export function formatAugment(apiName) {
 export function starString(tier) {
   return '★'.repeat(tier ?? 1)
 }
+
+/**
+ * Format a trait apiName to a readable label.
+ * e.g. "TFT14_Trait_ArcaneGuild" → "Arcane Guild"
+ */
+export function formatTrait(apiName) {
+  if (!apiName) return ''
+  const clean = apiName.replace(/^TFT\d*_(?:Trait_)?/i, '')
+  return clean.replace(/([A-Z])/g, ' $1').trim()
+}
+
+/**
+ * Tailwind classes for a trait's activity tier (style field).
+ * 0 = inactive, 1 = bronze, 2 = silver, 3 = gold, 4 = prismatic
+ */
+export function traitStyleClass(style) {
+  switch (style) {
+    case 1: return 'bg-amber-900/40 border-amber-700/60 text-amber-500'
+    case 2: return 'bg-slate-400/15 border-slate-400/50 text-slate-300'
+    case 3: return 'bg-yellow-500/15 border-yellow-500/50 text-yellow-400'
+    case 4: return 'bg-purple-500/15 border-purple-400/50 text-purple-300'
+    default: return 'bg-slate-700/20 border-slate-600/40 text-slate-500'
+  }
+}
+
+const QUEUE_NAMES = {
+  1090: 'Normal',
+  1100: 'Ranked',
+  1110: 'Tutorial',
+  1130: 'Hyper Roll',
+  1160: 'Double Up',
+  1170: 'Double Up',
+}
+
+/**
+ * Map a TFT queue ID to a display name.
+ */
+export function queueName(id) {
+  return QUEUE_NAMES[id] ?? 'Normal'
+}
